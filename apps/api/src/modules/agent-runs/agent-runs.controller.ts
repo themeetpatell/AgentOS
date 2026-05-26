@@ -17,6 +17,7 @@ import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/firebase-auth.guard';
 import { AgentRunsService } from './agent-runs.service';
+import type { PublishResult } from '../publish/publish.service';
 
 interface RunsResponse {
   readonly runs: ReadonlyArray<AgentRun>;
@@ -53,6 +54,14 @@ export class AgentRunsController {
     const action: ReviewAction = parsed.data;
     const run = await this.runs.applyReview(id, action, user.uid);
     return { run };
+  }
+
+  @Post(':id/publish')
+  async publish(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ run: AgentRun; publish: PublishResult }> {
+    return this.runs.publish(id, user.uid);
   }
 }
 

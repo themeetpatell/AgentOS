@@ -38,6 +38,7 @@ export default function RunDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editedDraft, setEditedDraft] = useState<Draft | null>(null);
+  const [publishInfo, setPublishInfo] = useState<string | null>(null);
 
   async function submitReview(action: ReviewAction) {
     setBusy(true);
@@ -51,6 +52,27 @@ export default function RunDetailPage() {
       setEditing(false);
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const result = await api.post<{
+        run: AgentRun;
+        publish: { destination: string; externalId?: string; url?: string };
+      }>(`/runs/${id}/publish`, {});
+      await mutate({ run: result.run }, { revalidate: false });
+      setPublishInfo(
+        result.publish.destination === 'noop'
+          ? 'Marked PUBLISHED locally (publish hook not configured).'
+          : `Published to ${result.publish.destination}${result.publish.url ? ` — ${result.publish.url}` : ''}`,
+      );
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Publish failed');
     } finally {
       setBusy(false);
     }
@@ -213,6 +235,21 @@ export default function RunDetailPage() {
           >
             Reject
           </button>
+        </section>
+      )}
+
+      {run.status === 'APPROVED' && (
+        <section className="flex items-center gap-3 pt-4 border-t border-muted/30">
+          <button
+            onClick={publish}
+            disabled={busy}
+            className="rounded-md bg-accent text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? 'Publishing…' : 'Publish to CMS'}
+          </button>
+          {publishInfo && (
+            <span className="text-xs text-muted">{publishInfo}</span>
+          )}
         </section>
       )}
 

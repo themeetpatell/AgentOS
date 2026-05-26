@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { PublishModule } from '../publish/publish.module';
 import { AgentRunRepository } from './agent-run.repository';
 import { AgentRunsService } from './agent-runs.service';
 import { AgentRunsController } from './agent-runs.controller';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PublishModule],
   controllers: [AgentRunsController],
   providers: [AgentRunRepository, AgentRunsService],
   exports: [AgentRunsService, AgentRunRepository],

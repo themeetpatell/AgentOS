@@ -22,6 +22,10 @@ export interface AppConfig {
     readonly workerUrl: string;
     readonly invokerSa: string;
   };
+  readonly publish: {
+    readonly finanshelsWebUrl: string;
+    readonly finanshelsWebToken: string;
+  };
 }
 
 export default function configuration(): { app: AppConfig } {
@@ -51,6 +55,10 @@ export default function configuration(): { app: AppConfig } {
         location: process.env.CLOUD_TASKS_LOCATION ?? 'us-central1',
         workerUrl: process.env.CLOUD_TASKS_WORKER_URL ?? 'http://localhost:3000',
         invokerSa: process.env.CLOUD_TASKS_INVOKER_SA ?? '',
+      },
+      publish: {
+        finanshelsWebUrl: process.env.FINANSHELS_WEB_PUBLISH_URL ?? '',
+        finanshelsWebToken: process.env.FINANSHELS_WEB_PUBLISH_TOKEN ?? '',
       },
     },
   };

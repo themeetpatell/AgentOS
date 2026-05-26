@@ -17,6 +17,7 @@ import {
   type ValidationReport,
 } from '@finanshels-neuro/shared';
 import { COLLECTIONS, FirestoreService } from '../firestore/firestore.service';
+import { PublishService, type PublishResult } from '../publish/publish.service';
 import { AgentRunRepository } from './agent-run.repository';
 
 const ALLOWED_TRANSITIONS: Readonly<Record<RunStatus, ReadonlyArray<RunStatus>>> = {
@@ -42,6 +43,7 @@ export class AgentRunsService {
   constructor(
     private readonly runs: AgentRunRepository,
     private readonly firestoreService: FirestoreService,
+    private readonly publisher: PublishService,
   ) {}
 
   async getRun(id: string): Promise<AgentRun> {
@@ -198,6 +200,28 @@ export class AgentRunsService {
         return updated;
       }
     }
+  }
+
+  async publish(
+    id: string,
+    actor: string,
+  ): Promise<{ run: AgentRun; publish: PublishResult }> {
+    const current = await this.getRun(id);
+    if (current.status !== 'APPROVED') {
+      throw new BadRequestException(
+        `Run ${id} must be APPROVED to publish (status: ${current.status})`,
+      );
+    }
+    const publish = await this.publisher.publish(current);
+    this.assertTransition(current.status, 'PUBLISHED');
+    const run = await this.runs.update(id, { status: 'PUBLISHED' });
+    await this.writeAudit({
+      runId: id,
+      actor,
+      action: 'PUBLISHED',
+      after: { destination: publish.destination, externalId: publish.externalId },
+    });
+    return { run, publish };
   }
 
   private assertTransition(from: RunStatus, to: RunStatus): void {
