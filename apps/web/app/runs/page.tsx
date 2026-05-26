@@ -1,43 +1,47 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { ACTIVE_STATUSES, type AgentRun } from '@finanshels-neuro/shared';
+import { api } from '../../lib/api-client';
 
 interface RunsResponse {
   readonly runs: ReadonlyArray<AgentRun>;
 }
 
-async function fetcher(url: string): Promise<RunsResponse> {
-  const res = await fetch(url, { credentials: 'include' });
-  if (!res.ok) {
-    throw new Error(`API ${res.status}`);
-  }
-  return res.json();
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
-
 export default function RunsPage() {
-  // Sprint 0: these endpoints 404 until /runs is implemented in Sprint 1.
-  // Dashboard surface mirrors neuro-app's grouped Active + History pattern.
+  const router = useRouter();
   const active = useSWR<RunsResponse>(
-    `${API_BASE}/runs?status=active`,
-    fetcher,
+    '/runs?status=active',
+    (path) => api.get<RunsResponse>(path),
     { refreshInterval: 5000 },
   );
   const history = useSWR<RunsResponse>(
-    `${API_BASE}/runs?status=history`,
-    fetcher,
+    '/runs?status=history',
+    (path) => api.get<RunsResponse>(path),
     { refreshInterval: 30000 },
   );
 
   return (
     <main className="min-h-screen px-6 py-8 max-w-5xl mx-auto space-y-10">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Runs</h1>
-        <p className="text-sm text-muted">
-          Active and recent agent runs. Submit a brief to start a new run.
-        </p>
+      <header className="flex items-end justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Runs</h1>
+          <p className="text-sm text-muted">
+            Active and recent agent runs. Submit a brief to start a new run.
+          </p>
+          <nav className="flex gap-3 text-xs text-muted pt-1">
+            <Link href="/brand" className="hover:text-fg">Brand</Link>
+            <Link href="/guardrails" className="hover:text-fg">Guardrails</Link>
+          </nav>
+        </div>
+        <button
+          onClick={() => router.push('/briefs/new')}
+          className="rounded-md bg-accent text-white px-4 py-2 font-medium hover:opacity-90"
+        >
+          New brief
+        </button>
       </header>
 
       <Section
@@ -82,17 +86,19 @@ function Section({ title, runs, loading, error, emptyHint }: SectionProps) {
       )}
       <ul className="space-y-2">
         {runs.map((run) => (
-          <li
-            key={run.id}
-            className="rounded-md border border-muted/40 px-4 py-3 flex justify-between items-center"
-          >
-            <div>
-              <p className="font-medium">{run.agentId}</p>
-              <p className="text-xs text-muted">
-                #{run.id.slice(0, 8)} · attempt {run.attempts}
-              </p>
-            </div>
-            <StatusBadge status={run.status} />
+          <li key={run.id}>
+            <Link
+              href={`/runs/${run.id}`}
+              className="block rounded-md border border-muted/40 px-4 py-3 flex justify-between items-center hover:border-accent/60"
+            >
+              <div>
+                <p className="font-medium">{run.agentId}</p>
+                <p className="text-xs text-muted">
+                  #{run.id.slice(0, 8)} · attempt {run.attempts}
+                </p>
+              </div>
+              <StatusBadge status={run.status} />
+            </Link>
           </li>
         ))}
       </ul>
