@@ -60,6 +60,49 @@ export interface ZohoTask {
   readonly Who_Id?: { id: string; name: string };
 }
 
+/**
+ * Generic Zoho activity (Call, Event, or Task). Used by analytics agents
+ * to detect missing-touch risk and to attribute outcomes to activity types.
+ */
+export interface ZohoActivity {
+  readonly id: string;
+  readonly Subject?: string;
+  readonly Activity_Type?: 'Calls' | 'Events' | 'Tasks' | string;
+  readonly Status?: string;
+  readonly Created_Time?: string;
+  readonly Modified_Time?: string;
+  readonly What_Id?: { id: string; name: string };
+  readonly Owner?: { id: string; name: string };
+}
+
+export interface ZohoUser {
+  readonly id: string;
+  readonly full_name?: string;
+  readonly email?: string;
+  readonly role?: { id: string; name: string };
+  readonly status?: 'active' | 'inactive';
+}
+
+/** Filter options for listOpenDeals / listClosedDeals. */
+export interface ZohoDealsFilter {
+  readonly ownerId?: string;
+  readonly stage?: string;
+  /** ISO date inclusive lower bound applied to Modified_Time. */
+  readonly modifiedSince?: string;
+}
+
+/**
+ * Internal pagination cursor for bulk reads. Zoho v6 caps at 200 records
+ * per page; ZohoService.paginate walks pages until more_records=false
+ * or a safety cap is hit.
+ */
+export interface ZohoPageInfo {
+  readonly page: number;
+  readonly per_page: number;
+  readonly count: number;
+  readonly more_records: boolean;
+}
+
 export interface ZohoSearchResult {
   readonly type: 'lead' | 'deal';
   readonly id: string;

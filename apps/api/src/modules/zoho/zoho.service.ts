@@ -5,13 +5,17 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
+  ZohoActivity,
   ZohoCreateResponse,
   ZohoDeal,
+  ZohoDealsFilter,
   ZohoLead,
   ZohoModule,
   ZohoNote,
+  ZohoPageInfo,
   ZohoSearchResult,
   ZohoTask,
+  ZohoUser,
 } from './zoho.types';
 
 interface ZohoConfig {
@@ -188,6 +192,99 @@ export class ZohoService {
   /** Deep link a Zoho record into the user's Zoho UI. */
   recordUrl(module: ZohoModule, id: string): string {
     return `https://crm.zoho.com/crm/tab/${module}/${id}`;
+  }
+
+  // -------- Bulk reads (Sprint 5 analytics agents) --------
+
+  /**
+   * List all deals that are NOT closed (won/lost). Used by pipeline-health,
+   * deal-risk, rep-scorecard. Paginated; capped at 1000 records.
+   */
+  async listOpenDeals(filter: ZohoDealsFilter = {}): Promise<ZohoDeal[]> {
+    const params = this.buildDealsListParams(filter);
+    // Server-side filter for non-closed stages via criteria.
+    // Closed stages are "Closed Won" and "Closed Lost" in stock Zoho;
+    // adapt if the org uses custom pipeline names.
+    params.set(
+      'criteria',
+      '(Stage:not_equal:Closed Won)and(Stage:not_equal:Closed Lost)',
+    );
+    return this.paginate<ZohoDeal>('/crm/v6/Deals/search', params);
+  }
+
+  /**
+   * List deals closed (won or lost) in the last N days. Used by win-loss.
+   */
+  async listClosedDeals(daysBack: number): Promise<ZohoDeal[]> {
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - daysBack);
+    const sinceIso = since.toISOString().slice(0, 10);
+    const params = new URLSearchParams({ per_page: '200' });
+    params.set(
+      'criteria',
+      `((Stage:equals:Closed Won)or(Stage:equals:Closed Lost))and(Closing_Date:greater_equal:${sinceIso})`,
+    );
+    return this.paginate<ZohoDeal>('/crm/v6/Deals/search', params);
+  }
+
+  /**
+   * List activities related to a parent record (Lead or Deal). Used by
+   * deal-risk to detect stale deals.
+   */
+  async listActivities(
+    parentModule: ZohoModule,
+    parentId: string,
+    limit = 50,
+  ): Promise<ZohoActivity[]> {
+    const params = new URLSearchParams({ per_page: String(Math.min(limit, 200)) });
+    const res = await this.callZoho(
+      'GET',
+      `/crm/v6/${parentModule}/${parentId}/Activities?${params}`,
+    );
+    if (res.status === 204) return [];
+    const json = (await res.json()) as { data?: ZohoActivity[] };
+    return json.data ?? [];
+  }
+
+  /** List active CRM users for rep-scorecard owner mapping. */
+  async listActiveUsers(): Promise<ZohoUser[]> {
+    const res = await this.callZoho('GET', '/crm/v6/users?type=ActiveUsers');
+    if (res.status === 204) return [];
+    const json = (await res.json()) as { users?: ZohoUser[] };
+    return json.users ?? [];
+  }
+
+  private buildDealsListParams(filter: ZohoDealsFilter): URLSearchParams {
+    const params = new URLSearchParams({ per_page: '200' });
+    const clauses: string[] = [];
+    if (filter.stage) clauses.push(`(Stage:equals:${filter.stage})`);
+    if (filter.ownerId) clauses.push(`(Owner:equals:${filter.ownerId})`);
+    if (filter.modifiedSince)
+      clauses.push(`(Modified_Time:greater_equal:${filter.modifiedSince})`);
+    if (clauses.length > 0) {
+      params.set('criteria', clauses.join('and'));
+    }
+    return params;
+  }
+
+  private async paginate<T extends { id: string }>(
+    path: string,
+    params: URLSearchParams,
+    maxPages = 5,
+  ): Promise<T[]> {
+    const out: T[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+      params.set('page', String(page));
+      const res = await this.callZoho('GET', `${path}?${params}`);
+      if (res.status === 204) break;
+      const json = (await res.json()) as {
+        data?: T[];
+        info?: ZohoPageInfo;
+      };
+      if (json.data?.length) out.push(...json.data);
+      if (!json.info?.more_records) break;
+    }
+    return out;
   }
 
   // -------- Internals --------

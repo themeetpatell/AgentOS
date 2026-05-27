@@ -8,9 +8,15 @@ import { ConfigService } from '@nestjs/config';
 import type {
   Agent,
   AgentExecutionContext,
+  CrmDataset,
   CrmRecordSnapshot,
 } from '@finanshels-neuro/agents';
-import type { AgentRun, Brief } from '@finanshels-neuro/shared';
+import type { AgentId, AgentRun, Brief } from '@finanshels-neuro/shared';
+import type {
+  ZohoActivity,
+  ZohoDeal,
+  ZohoUser,
+} from '../zoho/zoho.types';
 import { AGENT_REGISTRY_TOKEN } from '../agents/agents.module';
 import { AgentRunsService } from '../agent-runs/agent-runs.service';
 import { BrandContextService } from '../brand-context/brand-context.service';
@@ -124,6 +130,7 @@ export class OrchestratorService {
   private async buildContext(brief: Brief): Promise<AgentExecutionContext> {
     const brand = await this.brandContext.getActive();
     const crmRecord = await this.maybeFetchCrm(brief);
+    const crmDataset = await this.maybeFetchDataset(brief);
     return {
       brandContextVersion: brand.version,
       brandContextPrompt: this.brandContext.renderPrompt(brand),
@@ -137,6 +144,7 @@ export class OrchestratorService {
         this.config.get<string>('app.anthropic.lightModel') ??
         'claude-haiku-4-5-20251001',
       crmRecord,
+      crmDataset,
     };
   }
 
@@ -173,4 +181,166 @@ export class OrchestratorService {
     }
     return undefined;
   }
+
+  /**
+   * For analytics agents, pre-fetch the right aggregated Zoho dataset and
+   * pack it into `crmDataset`. Returns undefined for non-analytics agents
+   * or when Zoho is not configured.
+   */
+  private async maybeFetchDataset(
+    brief: Brief,
+  ): Promise<CrmDataset | undefined> {
+    const id = brief.agentId as AgentId;
+    if (!ANALYTICS_AGENTS.has(id)) return undefined;
+    if (!this.zoho.isConfigured()) return undefined;
+
+    try {
+      switch (id) {
+        case 'pipeline-health':
+          return await this.buildPipelineDataset();
+        case 'deal-risk':
+          return await this.buildDealRiskDataset();
+        case 'win-loss':
+          return await this.buildWinLossDataset(brief);
+        case 'rep-scorecard':
+          return await this.buildRepScorecardDataset(brief);
+        default:
+          return undefined;
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Zoho dataset fetch failed for ${id} brief ${brief.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return undefined;
+    }
+  }
+
+  private async buildPipelineDataset(): Promise<CrmDataset> {
+    const openDeals = await this.zoho.listOpenDeals();
+    return {
+      label: 'open-deals',
+      data: { openDeals: openDeals.map(slimDeal) },
+      counts: { openDeals: openDeals.length },
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  private async buildDealRiskDataset(): Promise<CrmDataset> {
+    const openDeals = await this.zoho.listOpenDeals();
+    // Cap activity fan-out to avoid blowing up the request budget.
+    const deals = openDeals.slice(0, 60);
+    const activitiesByDealId: Record<string, ZohoActivity[]> = {};
+    await Promise.all(
+      deals.map(async (deal) => {
+        try {
+          activitiesByDealId[deal.id] = await this.zoho.listActivities(
+            'Deals',
+            deal.id,
+            20,
+          );
+        } catch {
+          activitiesByDealId[deal.id] = [];
+        }
+      }),
+    );
+    return {
+      label: 'open-deals-with-activities',
+      data: {
+        openDeals: deals.map(slimDeal),
+        activitiesByDealId,
+        truncated: openDeals.length > deals.length,
+      },
+      counts: {
+        openDeals: deals.length,
+        totalOpen: openDeals.length,
+      },
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  private async buildWinLossDataset(brief: Brief): Promise<CrmDataset> {
+    const daysBack = parseDaysBack(brief.context?.daysBack) ?? 90;
+    const closedDeals = await this.zoho.listClosedDeals(daysBack);
+    return {
+      label: `closed-${daysBack}d`,
+      data: {
+        windowDays: daysBack,
+        closedDeals: closedDeals.map(slimDeal),
+      },
+      counts: {
+        closedDeals: closedDeals.length,
+        windowDays: daysBack,
+      },
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  private async buildRepScorecardDataset(brief: Brief): Promise<CrmDataset> {
+    const daysBack = parseDaysBack(brief.context?.daysBack) ?? 30;
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - daysBack);
+    const sinceIso = since.toISOString().slice(0, 10);
+
+    const [users, openDeals, closedDeals] = await Promise.all([
+      this.zoho.listActiveUsers(),
+      this.zoho.listOpenDeals({ modifiedSince: sinceIso }),
+      this.zoho.listClosedDeals(daysBack),
+    ]);
+
+    const dealsByOwnerId: Record<string, ReturnType<typeof slimDeal>[]> = {};
+    for (const deal of [...openDeals, ...closedDeals]) {
+      const ownerId = deal.Owner?.id;
+      if (!ownerId) continue;
+      (dealsByOwnerId[ownerId] ??= []).push(slimDeal(deal));
+    }
+
+    return {
+      label: `rep-scorecard-${daysBack}d`,
+      data: {
+        windowDays: daysBack,
+        users: users.map((u) => ({ id: u.id, name: u.full_name, email: u.email })),
+        dealsByOwnerId,
+      },
+      counts: {
+        users: users.length,
+        openDeals: openDeals.length,
+        closedDeals: closedDeals.length,
+        windowDays: daysBack,
+      },
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+}
+
+const ANALYTICS_AGENTS: ReadonlySet<AgentId> = new Set<AgentId>([
+  'pipeline-health',
+  'deal-risk',
+  'win-loss',
+  'rep-scorecard',
+]);
+
+/**
+ * Slim a Zoho deal down to the fields analytics agents actually use.
+ * Keeps prompts compact and avoids leaking unrelated CRM fields to the model.
+ */
+function slimDeal(deal: ZohoDeal) {
+  return {
+    id: deal.id,
+    name: deal.Deal_Name,
+    stage: deal.Stage,
+    amount: deal.Amount,
+    closingDate: deal.Closing_Date,
+    owner: deal.Owner ? { id: deal.Owner.id, name: deal.Owner.name } : undefined,
+    account: deal.Account_Name?.name,
+    contact: deal.Contact_Name?.name,
+    createdTime: deal.Created_Time,
+    modifiedTime: deal.Modified_Time,
+  };
+}
+
+function parseDaysBack(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 365) return undefined;
+  return Math.floor(n);
 }

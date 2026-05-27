@@ -1,13 +1,22 @@
 import { z } from 'zod';
 
 export const agentIdSchema = z.enum([
+  // Marketing
   'blog-post',
   'seo-brief',
   'social-variants',
   'ad-copy',
+  'email-nurture',
+  'newsletter',
+  // Sales outreach
   'cold-outreach',
   'follow-up',
   'discovery-prep',
+  // Sales analytics
+  'pipeline-health',
+  'deal-risk',
+  'win-loss',
+  'rep-scorecard',
 ]);
 
 export const runStatusSchema = z.enum([

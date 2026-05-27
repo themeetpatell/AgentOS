@@ -20,6 +20,30 @@ export function renderCrmRecord(context: AgentExecutionContext): string {
 ${lines || '- (no displayable fields)'}`;
 }
 
+/**
+ * Render the optional aggregated CRM dataset for analytics agents.
+ * Embeds the full payload as JSON so the model can compute over it.
+ * Truncates anything beyond MAX_DATASET_CHARS so prompts stay bounded.
+ */
+const MAX_DATASET_CHARS = 60_000;
+
+export function renderCrmDataset(context: AgentExecutionContext): string {
+  const ds = context.crmDataset;
+  if (!ds) {
+    return 'CRM dataset: (none — Zoho not configured or fetch failed).';
+  }
+  const countsLine = Object.entries(ds.counts)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ');
+  const json = JSON.stringify(ds.data, null, 2);
+  const truncated = json.length > MAX_DATASET_CHARS;
+  const body = truncated
+    ? `${json.slice(0, MAX_DATASET_CHARS)}\n... (truncated; original was ${json.length} chars)`
+    : json;
+  return `CRM dataset "${ds.label}" (fetched ${ds.fetchedAt}; ${countsLine || 'no counts'}):
+${body}`;
+}
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (

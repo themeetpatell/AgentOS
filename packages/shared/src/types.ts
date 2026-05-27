@@ -4,13 +4,22 @@
  */
 
 export type AgentId =
+  // Marketing
   | 'blog-post'
   | 'seo-brief'
   | 'social-variants'
   | 'ad-copy'
+  | 'email-nurture'
+  | 'newsletter'
+  // Sales outreach
   | 'cold-outreach'
   | 'follow-up'
-  | 'discovery-prep';
+  | 'discovery-prep'
+  // Sales analytics
+  | 'pipeline-health'
+  | 'deal-risk'
+  | 'win-loss'
+  | 'rep-scorecard';
 
 export type RunStatus =
   | 'QUEUED'

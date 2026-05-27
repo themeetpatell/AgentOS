@@ -22,46 +22,111 @@ const SALES_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
   'discovery-prep',
 ]);
 
-const AGENT_OPTIONS: ReadonlyArray<AgentOption> = [
+interface AgentGroup {
+  readonly label: string;
+  readonly options: ReadonlyArray<AgentOption>;
+}
+
+const AGENT_GROUPS: ReadonlyArray<AgentGroup> = [
   {
-    id: 'blog-post',
-    name: 'Blog Post',
-    description: '800-1500 word post with H2/H3 structure and SEO meta.',
+    label: 'Marketing',
+    options: [
+      {
+        id: 'blog-post',
+        name: 'Blog Post',
+        description: '800-1500 word post with H2/H3 structure and SEO meta.',
+      },
+      {
+        id: 'seo-brief',
+        name: 'SEO Brief',
+        description: 'SERP-aware brief from a target keyword.',
+      },
+      {
+        id: 'social-variants',
+        name: 'Social Variants',
+        description: '3-5 LinkedIn + 3-5 X posts from approved long-form content.',
+      },
+      {
+        id: 'ad-copy',
+        name: 'Ad Copy',
+        description: '3 angles, each as Meta + LinkedIn headline/primary text.',
+      },
+      {
+        id: 'email-nurture',
+        name: 'Email Nurture',
+        description: '3-5 step welcome/onboarding sequence with timing notes.',
+      },
+      {
+        id: 'newsletter',
+        name: 'Newsletter',
+        description: 'Weekly digest: subject, intro, 3 sections, sign-off.',
+      },
+    ],
   },
   {
-    id: 'seo-brief',
-    name: 'SEO Brief',
-    description: 'SERP-aware brief from a target keyword.',
+    label: 'Sales outreach (requires Zoho lead)',
+    options: [
+      {
+        id: 'cold-outreach',
+        name: 'Cold Outreach',
+        description:
+          'First-touch email to a Zoho lead: subject + primary body + 2 variants.',
+      },
+      {
+        id: 'follow-up',
+        name: 'Follow-up',
+        description:
+          'Three-step cadence (nudge, value-add, breakup) for a stalled thread.',
+      },
+      {
+        id: 'discovery-prep',
+        name: 'Discovery Prep',
+        description:
+          'Pre-call brief: background, pain hypotheses, talking points, questions.',
+      },
+    ],
   },
   {
-    id: 'social-variants',
-    name: 'Social Variants',
-    description: '3-5 LinkedIn + 3-5 X posts from approved long-form content.',
-  },
-  {
-    id: 'ad-copy',
-    name: 'Ad Copy',
-    description: '3 angles, each as Meta + LinkedIn headline/primary text.',
-  },
-  {
-    id: 'cold-outreach',
-    name: 'Cold Outreach',
-    description:
-      'First-touch email to a Zoho lead: subject + primary body + 2 variants.',
-  },
-  {
-    id: 'follow-up',
-    name: 'Follow-up',
-    description:
-      'Three-step cadence (nudge, value-add, breakup) for a stalled thread.',
-  },
-  {
-    id: 'discovery-prep',
-    name: 'Discovery Prep',
-    description:
-      'Pre-call brief: background, pain hypotheses, talking points, questions.',
+    label: 'Sales analytics (aggregates from Zoho)',
+    options: [
+      {
+        id: 'pipeline-health',
+        name: 'Pipeline Health',
+        description:
+          'Stage + owner breakdown of open deals with risks and recommendations.',
+      },
+      {
+        id: 'deal-risk',
+        name: 'Deal Risk Audit',
+        description:
+          'Stalled / missing-touch / closing-cold flags across open deals.',
+      },
+      {
+        id: 'win-loss',
+        name: 'Win/Loss Analysis',
+        description:
+          'Patterns across closed-won vs closed-lost (window defaults to 90 days).',
+      },
+      {
+        id: 'rep-scorecard',
+        name: 'Rep Scorecard',
+        description:
+          'Per-rep activities, pipeline, win rate, quota attainment.',
+      },
+    ],
   },
 ];
+
+const AGENT_OPTIONS: ReadonlyArray<AgentOption> = AGENT_GROUPS.flatMap(
+  (g) => g.options,
+);
+
+const ANALYTICS_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
+  'pipeline-health',
+  'deal-risk',
+  'win-loss',
+  'rep-scorecard',
+]);
 
 export default function NewBriefPage() {
   const router = useRouter();
@@ -118,34 +183,41 @@ export default function NewBriefPage() {
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-4">
           <legend className="text-sm font-medium">Agent</legend>
-          <div className="grid gap-2">
-            {AGENT_OPTIONS.map((opt) => (
-              <label
-                key={opt.id}
-                className={`flex gap-3 rounded-md border px-3 py-2 cursor-pointer ${
-                  agentId === opt.id
-                    ? 'border-accent bg-accent/10'
-                    : 'border-muted/40'
-                } ${opt.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="agentId"
-                  value={opt.id}
-                  checked={agentId === opt.id}
-                  disabled={opt.disabled}
-                  onChange={() => setAgentId(opt.id)}
-                  className="mt-1"
-                />
-                <div>
-                  <div className="font-medium">{opt.name}</div>
-                  <div className="text-xs text-muted">{opt.description}</div>
-                </div>
-              </label>
-            ))}
-          </div>
+          {AGENT_GROUPS.map((group) => (
+            <div key={group.label} className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted">
+                {group.label}
+              </p>
+              <div className="grid gap-2">
+                {group.options.map((opt) => (
+                  <label
+                    key={opt.id}
+                    className={`flex gap-3 rounded-md border px-3 py-2 cursor-pointer ${
+                      agentId === opt.id
+                        ? 'border-accent bg-accent/10'
+                        : 'border-muted/40'
+                    } ${opt.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="agentId"
+                      value={opt.id}
+                      checked={agentId === opt.id}
+                      disabled={opt.disabled}
+                      onChange={() => setAgentId(opt.id)}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium">{opt.name}</div>
+                      <div className="text-xs text-muted">{opt.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
         </fieldset>
 
         {isSalesAgent && (
@@ -171,15 +243,7 @@ export default function NewBriefPage() {
             required
             maxLength={200}
             className="w-full rounded-md bg-muted/10 border border-muted/40 px-3 py-2"
-            placeholder={
-              agentId === 'cold-outreach'
-                ? 'Subject hint or campaign theme'
-                : agentId === 'follow-up'
-                  ? 'Thread topic'
-                  : agentId === 'discovery-prep'
-                    ? 'Call topic / agenda'
-                    : 'UAE Corporate Tax thresholds for SMEs'
-            }
+            placeholder={titlePlaceholder(agentId)}
           />
         </label>
 
@@ -192,15 +256,7 @@ export default function NewBriefPage() {
             maxLength={8000}
             rows={6}
             className="w-full rounded-md bg-muted/10 border border-muted/40 px-3 py-2 font-mono text-sm"
-            placeholder={
-              agentId === 'cold-outreach'
-                ? 'Offer, hook, constraints. Anchors to mention. What we know about this lead.'
-                : agentId === 'follow-up'
-                  ? 'Paste the prior thread, then describe the outcome (e.g. "no reply 5d", "asked for time").'
-                  : agentId === 'discovery-prep'
-                    ? 'Focus areas, knowns, suspected pain, anything the lead has already told us.'
-                    : 'Beginner audience. Cover the 375k AED threshold, free-zone exemptions, filing deadlines.'
-            }
+            placeholder={instructionsPlaceholder(agentId)}
           />
         </label>
 
@@ -260,4 +316,54 @@ export default function NewBriefPage() {
       </form>
     </main>
   );
+}
+
+function titlePlaceholder(agentId: AgentId): string {
+  switch (agentId) {
+    case 'cold-outreach':
+      return 'Subject hint or campaign theme';
+    case 'follow-up':
+      return 'Thread topic';
+    case 'discovery-prep':
+      return 'Call topic / agenda';
+    case 'email-nurture':
+      return 'Sequence theme (e.g. "Welcome to Finanshels")';
+    case 'newsletter':
+      return "This week's theme or hook";
+    case 'pipeline-health':
+      return 'Pipeline check label (e.g. "Q3 health")';
+    case 'deal-risk':
+      return 'Audit scope (e.g. "This-quarter deals")';
+    case 'win-loss':
+      return 'Window label (e.g. "Q2 win-loss")';
+    case 'rep-scorecard':
+      return 'Period (e.g. "April 2026")';
+    default:
+      return 'UAE Corporate Tax thresholds for SMEs';
+  }
+}
+
+function instructionsPlaceholder(agentId: AgentId): string {
+  switch (agentId) {
+    case 'cold-outreach':
+      return 'Offer, hook, constraints. Anchors to mention. What we know about this lead.';
+    case 'follow-up':
+      return 'Paste the prior thread, then describe the outcome (e.g. "no reply 5d", "asked for time").';
+    case 'discovery-prep':
+      return 'Focus areas, knowns, suspected pain, anything the lead has already told us.';
+    case 'email-nurture':
+      return 'Audience, the journey, what each step should accomplish, timing per step.';
+    case 'newsletter':
+      return '3-5 source links or notes; brief summary per item.';
+    case 'pipeline-health':
+      return 'Focus questions (e.g. "where is coverage thinnest?", "which stages are bloated?").';
+    case 'deal-risk':
+      return 'Thresholds + focus (e.g. "stale = 14d, missing-touch = 7d, prioritize >AED 100k deals").';
+    case 'win-loss':
+      return 'Focus questions (e.g. "what kills enterprise deals?", "which source converts best?"). Set context.daysBack to change window.';
+    case 'rep-scorecard':
+      return 'Quota notes (e.g. "AED 250k/rep/month") and any rep-specific context.';
+    default:
+      return 'Beginner audience. Cover the 375k AED threshold, free-zone exemptions, filing deadlines.';
+  }
 }
