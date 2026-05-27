@@ -17,6 +17,13 @@ import { pipelineHealthAgent } from './pipeline-health';
 import { dealRiskAgent } from './deal-risk';
 import { winLossAgent } from './win-loss';
 import { repScorecardAgent } from './rep-scorecard';
+import { meetingPrepAgent } from './meeting-prep';
+import { meetingSummaryAgent } from './meeting-summary';
+import { interviewDebriefAgent } from './interview-debrief';
+import { jobDescriptionAgent } from './job-description';
+import { onboardingPlanAgent } from './onboarding-plan';
+import { financialCommentaryAgent } from './financial-commentary';
+import { varianceExplainerAgent } from './variance-explainer';
 
 export const AGENT_REGISTRY: Readonly<Record<string, Agent>> = Object.freeze({
   // Marketing
@@ -35,6 +42,16 @@ export const AGENT_REGISTRY: Readonly<Record<string, Agent>> = Object.freeze({
   [dealRiskAgent.id]: dealRiskAgent,
   [winLossAgent.id]: winLossAgent,
   [repScorecardAgent.id]: repScorecardAgent,
+  // Day-to-day (universal)
+  [meetingPrepAgent.id]: meetingPrepAgent,
+  [meetingSummaryAgent.id]: meetingSummaryAgent,
+  // HR
+  [interviewDebriefAgent.id]: interviewDebriefAgent,
+  [jobDescriptionAgent.id]: jobDescriptionAgent,
+  [onboardingPlanAgent.id]: onboardingPlanAgent,
+  // Internal finance
+  [financialCommentaryAgent.id]: financialCommentaryAgent,
+  [varianceExplainerAgent.id]: varianceExplainerAgent,
 });
 
 export {
@@ -51,4 +68,11 @@ export {
   dealRiskAgent,
   winLossAgent,
   repScorecardAgent,
+  meetingPrepAgent,
+  meetingSummaryAgent,
+  interviewDebriefAgent,
+  jobDescriptionAgent,
+  onboardingPlanAgent,
+  financialCommentaryAgent,
+  varianceExplainerAgent,
 };

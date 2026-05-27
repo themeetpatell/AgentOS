@@ -1,9 +1,14 @@
-import { getFirebaseAuth } from './firebase-client';
+import { getDevEmail, getFirebaseAuth, isLocalDev } from './firebase-client';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
 
 async function authHeader(): Promise<Record<string, string>> {
+  if (isLocalDev()) {
+    const email = getDevEmail();
+    if (!email) return {};
+    return { Authorization: `Bearer dev:${email}` };
+  }
   const user = getFirebaseAuth().currentUser;
   if (!user) return {};
   const token = await user.getIdToken();

@@ -2,6 +2,12 @@ export interface AppConfig {
   readonly nodeEnv: 'development' | 'production' | 'test';
   readonly port: number;
   readonly webOrigin: string;
+  /**
+   * Local-dev mode: in-memory Firestore shim, in-process Cloud Tasks
+   * dispatch, dev-token auth bypass. Enabled when NEURO_LOCAL_DEV=1.
+   * Lets staff run the platform with just an Anthropic key, no GCP setup.
+   */
+  readonly localDev: boolean;
   readonly gcp: {
     readonly projectId: string;
     readonly region: string;
@@ -43,6 +49,10 @@ export default function configuration(): { app: AppConfig } {
       nodeEnv,
       port: Number(process.env.PORT ?? 3000),
       webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:3001',
+      localDev:
+        process.env.NEURO_LOCAL_DEV === '1' ||
+        process.env.NEURO_LOCAL_DEV === 'true' ||
+        (!process.env.FIREBASE_PROJECT_ID && nodeEnv === 'development'),
       gcp: {
         projectId: process.env.GCP_PROJECT_ID ?? '',
         region: process.env.GCP_REGION ?? 'us-central1',

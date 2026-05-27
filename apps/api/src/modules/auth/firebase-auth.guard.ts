@@ -42,6 +42,19 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new Error('FIREBASE_AUTH_ALLOWED_DOMAIN is not configured');
     }
 
+    // Local-dev escape hatch: accept "dev:<email>" tokens. Same domain
+    // restriction as prod so the behaviour you test matches what ships.
+    if (this.firestoreService.isLocalDev() && token.startsWith('dev:')) {
+      const email = token.slice('dev:'.length).trim();
+      if (!email.endsWith(`@${allowedDomain}`)) {
+        throw new ForbiddenException(
+          `Only @${allowedDomain} accounts are allowed (local-dev)`,
+        );
+      }
+      request.user = { uid: `local-dev:${email}`, email };
+      return true;
+    }
+
     try {
       const decoded = await this.firestoreService
         .authClient()

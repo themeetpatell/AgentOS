@@ -19,7 +19,17 @@ export type AgentId =
   | 'pipeline-health'
   | 'deal-risk'
   | 'win-loss'
-  | 'rep-scorecard';
+  | 'rep-scorecard'
+  // Day-to-day (universal)
+  | 'meeting-prep'
+  | 'meeting-summary'
+  // HR
+  | 'interview-debrief'
+  | 'job-description'
+  | 'onboarding-plan'
+  // Internal finance
+  | 'financial-commentary'
+  | 'variance-explainer';
 
 export type RunStatus =
   | 'QUEUED'

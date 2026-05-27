@@ -115,6 +115,63 @@ const AGENT_GROUPS: ReadonlyArray<AgentGroup> = [
       },
     ],
   },
+  {
+    label: 'Day-to-day (paste-in, no integration needed)',
+    options: [
+      {
+        id: 'meeting-prep',
+        name: 'Meeting Prep',
+        description:
+          'Agenda + context -> talking points, questions, risks, success criteria.',
+      },
+      {
+        id: 'meeting-summary',
+        name: 'Meeting Summary',
+        description:
+          'Transcript or notes -> summary, decisions, action items, follow-up email.',
+      },
+    ],
+  },
+  {
+    label: 'HR (paste-in, no integration needed)',
+    options: [
+      {
+        id: 'interview-debrief',
+        name: 'Interview Debrief',
+        description:
+          'Interview notes -> strengths, concerns, hire/no-hire + next-round questions.',
+      },
+      {
+        id: 'job-description',
+        name: 'Job Description',
+        description:
+          'Rough requirements -> polished JD + interview rubric.',
+      },
+      {
+        id: 'onboarding-plan',
+        name: 'Onboarding Plan',
+        description:
+          'Role + start date + context -> first-30-days plan with milestones.',
+      },
+    ],
+  },
+  {
+    label: 'Internal finance (paste-in, no integration needed)',
+    options: [
+      {
+        id: 'financial-commentary',
+        name: 'Financial Commentary',
+        description:
+          'P&L + KPI numbers -> management-report narrative (never invents numbers).',
+      },
+      {
+        id: 'variance-explainer',
+        name: 'Variance Explainer',
+        description:
+          'Budget vs actual -> ranked variance drivers + questions for owners.',
+      },
+    ],
+  },
 ];
 
 const AGENT_OPTIONS: ReadonlyArray<AgentOption> = AGENT_GROUPS.flatMap(
@@ -338,6 +395,20 @@ function titlePlaceholder(agentId: AgentId): string {
       return 'Window label (e.g. "Q2 win-loss")';
     case 'rep-scorecard':
       return 'Period (e.g. "April 2026")';
+    case 'meeting-prep':
+      return 'Meeting title (e.g. "Acme Corp discovery call")';
+    case 'meeting-summary':
+      return 'Meeting title (e.g. "Weekly leadership 1:1")';
+    case 'interview-debrief':
+      return 'Candidate + role (e.g. "Maryam — Senior Accountant")';
+    case 'job-description':
+      return 'Role title (e.g. "Senior Tax Manager — UAE CT")';
+    case 'onboarding-plan':
+      return 'Role + start date (e.g. "Bookkeeper — starts 2026-06-02")';
+    case 'financial-commentary':
+      return 'Period (e.g. "April 2026 management report")';
+    case 'variance-explainer':
+      return 'Scope (e.g. "April 2026 budget vs actual")';
     default:
       return 'UAE Corporate Tax thresholds for SMEs';
   }
@@ -363,6 +434,20 @@ function instructionsPlaceholder(agentId: AgentId): string {
       return 'Focus questions (e.g. "what kills enterprise deals?", "which source converts best?"). Set context.daysBack to change window.';
     case 'rep-scorecard':
       return 'Quota notes (e.g. "AED 250k/rep/month") and any rep-specific context.';
+    case 'meeting-prep':
+      return 'Agenda + attendees + objective + any context the attendees should know.';
+    case 'meeting-summary':
+      return 'Paste the transcript or rough notes from the meeting. Owners mentioned by name will be threaded into action items.';
+    case 'interview-debrief':
+      return 'Paste interview notes + the JD + any prior signals (resume highlights, referral notes).';
+    case 'job-description':
+      return 'Rough requirements: level, team, must-haves, what success looks like, comp range if any.';
+    case 'onboarding-plan':
+      return 'Manager, team, first projects, must-meet people, tools to provision.';
+    case 'financial-commentary':
+      return 'Paste P&L numbers + KPIs + prior-period comparisons. The agent will never invent numbers — only what you paste here is in the report.';
+    case 'variance-explainer':
+      return 'Paste budget vs actual numbers, line-item or summary. Include owner names per line if known.';
     default:
       return 'Beginner audience. Cover the 375k AED threshold, free-zone exemptions, filing deadlines.';
   }
