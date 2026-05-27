@@ -15,6 +15,7 @@ import type {
   ValidateResult,
 } from './agent';
 import { ClaudeClient } from './claude-client';
+import type { AgentExecutionContext } from './types';
 
 export interface ClaudeAgentConfig<TPlan = ContentPlan, TDraft = Draft> {
   readonly id: AgentId;
@@ -22,17 +23,24 @@ export interface ClaudeAgentConfig<TPlan = ContentPlan, TDraft = Draft> {
   readonly description: string;
 
   readonly planSystemPrompt: (brand: string) => string;
-  readonly planUserPrompt: (brief: Brief) => string;
+  readonly planUserPrompt: (brief: Brief, context: AgentExecutionContext) => string;
   readonly planSchema?: z.ZodType<TPlan>;
   readonly planMaxTokens?: number;
 
   readonly executeSystemPrompt: (brand: string) => string;
-  readonly executeUserPrompt: (brief: Brief, plan: TPlan) => string;
+  readonly executeUserPrompt: (
+    brief: Brief,
+    plan: TPlan,
+    context: AgentExecutionContext,
+  ) => string;
   readonly executeSchema?: z.ZodType<TDraft>;
   readonly executeMaxTokens?: number;
 
   readonly validateSystemPrompt: (brand: string) => string;
-  readonly validateUserPrompt: (draft: TDraft) => string;
+  readonly validateUserPrompt: (
+    draft: TDraft,
+    context: AgentExecutionContext,
+  ) => string;
   readonly validateMaxTokens?: number;
 }
 
@@ -58,7 +66,7 @@ export function createClaudeAgent<TPlan = ContentPlan, TDraft = Draft>(
         {
           model: context.planModel,
           system: config.planSystemPrompt(context.brandContextPrompt),
-          user: config.planUserPrompt(brief),
+          user: config.planUserPrompt(brief, context),
           maxTokens: config.planMaxTokens,
         },
         (raw) => planSchema.parse(JSON.parse(raw)),
@@ -75,7 +83,7 @@ export function createClaudeAgent<TPlan = ContentPlan, TDraft = Draft>(
         {
           model: context.executeModel,
           system: config.executeSystemPrompt(context.brandContextPrompt),
-          user: config.executeUserPrompt(brief, plan as unknown as TPlan),
+          user: config.executeUserPrompt(brief, plan as unknown as TPlan, context),
           maxTokens: config.executeMaxTokens ?? 8192,
         },
         (raw) => draftSchemaResolved.parse(JSON.parse(raw)),
@@ -92,7 +100,7 @@ export function createClaudeAgent<TPlan = ContentPlan, TDraft = Draft>(
         {
           model: context.lightModel,
           system: config.validateSystemPrompt(context.brandContextPrompt),
-          user: config.validateUserPrompt(draft as unknown as TDraft),
+          user: config.validateUserPrompt(draft as unknown as TDraft, context),
           maxTokens: config.validateMaxTokens,
         },
         (raw) => validationReportSchema.parse(JSON.parse(raw)),

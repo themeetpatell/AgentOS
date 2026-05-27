@@ -9,6 +9,7 @@ import {
   draftSchema,
   type AgentRun,
   type AuditEvent,
+  type Brief,
   type ContentPlan,
   type Draft,
   type ReviewAction,
@@ -212,16 +213,34 @@ export class AgentRunsService {
         `Run ${id} must be APPROVED to publish (status: ${current.status})`,
       );
     }
-    const publish = await this.publisher.publish(current);
+    const brief = await this.loadBrief(current.briefId);
+    if (!brief) {
+      throw new BadRequestException(
+        `Brief ${current.briefId} not found for run ${id}`,
+      );
+    }
+    const publish = await this.publisher.publish(current, brief);
     this.assertTransition(current.status, 'PUBLISHED');
     const run = await this.runs.update(id, { status: 'PUBLISHED' });
     await this.writeAudit({
       runId: id,
       actor,
       action: 'PUBLISHED',
-      after: { destination: publish.destination, externalId: publish.externalId },
+      after: {
+        destination: publish.destination,
+        externalId: publish.externalId,
+      },
     });
     return { run, publish };
+  }
+
+  private async loadBrief(briefId: string): Promise<Brief | null> {
+    const snap = await this.firestoreService
+      .db()
+      .collection(COLLECTIONS.briefs)
+      .doc(briefId)
+      .get();
+    return snap.exists ? (snap.data() as Brief) : null;
   }
 
   private assertTransition(from: RunStatus, to: RunStatus): void {

@@ -5,6 +5,9 @@ export const agentIdSchema = z.enum([
   'seo-brief',
   'social-variants',
   'ad-copy',
+  'cold-outreach',
+  'follow-up',
+  'discovery-prep',
 ]);
 
 export const runStatusSchema = z.enum([
@@ -30,6 +33,8 @@ export const briefInputSchema = z.object({
   targetAudience: z.string().max(500).optional(),
   wordCountTarget: z.number().int().positive().max(20000).optional(),
   attachmentUrls: z.array(z.string().url()).max(20).default([]),
+  /** Free-form CRM refs (e.g. { leadId, dealId, contactId }) for sales agents. */
+  context: z.record(z.string(), z.string().max(200)).optional(),
 });
 
 export const contentPlanSchema = z.object({

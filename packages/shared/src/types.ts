@@ -7,7 +7,10 @@ export type AgentId =
   | 'blog-post'
   | 'seo-brief'
   | 'social-variants'
-  | 'ad-copy';
+  | 'ad-copy'
+  | 'cold-outreach'
+  | 'follow-up'
+  | 'discovery-prep';
 
 export type RunStatus =
   | 'QUEUED'
@@ -49,6 +52,12 @@ export interface Brief {
   readonly targetAudience?: string;
   readonly wordCountTarget?: number;
   readonly attachmentUrls: ReadonlyArray<string>;
+  /**
+   * Free-form context bag for CRM refs and other structured pointers.
+   * Sales agents look up `context.leadId` / `context.dealId` to fetch the
+   * matching Zoho record before planning.
+   */
+  readonly context?: Readonly<Record<string, string>>;
   readonly createdBy: string;
   readonly createdAt: string;
 }

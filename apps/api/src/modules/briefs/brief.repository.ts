@@ -25,6 +25,7 @@ export class BriefRepository {
       targetAudience: input.targetAudience,
       wordCountTarget: input.wordCountTarget,
       attachmentUrls: input.attachmentUrls ?? [],
+      context: input.context,
       createdBy: input.createdBy,
       createdAt: new Date().toISOString(),
     };

@@ -5,8 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Agent, AgentExecutionContext } from '@finanshels-neuro/agents';
-import type { AgentRun } from '@finanshels-neuro/shared';
+import type {
+  Agent,
+  AgentExecutionContext,
+  CrmRecordSnapshot,
+} from '@finanshels-neuro/agents';
+import type { AgentRun, Brief } from '@finanshels-neuro/shared';
 import { AGENT_REGISTRY_TOKEN } from '../agents/agents.module';
 import { AgentRunsService } from '../agent-runs/agent-runs.service';
 import { BrandContextService } from '../brand-context/brand-context.service';
@@ -15,6 +19,7 @@ import {
   CloudTasksService,
   type AgentPhase,
 } from '../cloud-tasks/cloud-tasks.service';
+import { ZohoService } from '../zoho/zoho.service';
 
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_SECONDS = 4;
@@ -29,6 +34,7 @@ export class OrchestratorService {
     private readonly brandContext: BrandContextService,
     private readonly cloudTasks: CloudTasksService,
     private readonly config: ConfigService,
+    private readonly zoho: ZohoService,
     @Inject(AGENT_REGISTRY_TOKEN)
     private readonly registry: Readonly<Record<string, Agent>>,
   ) {}
@@ -58,7 +64,7 @@ export class OrchestratorService {
       return this.runs.markFailed(runId, `Unknown agent ${run.agentId}`);
     }
 
-    const context = await this.buildContext();
+    const context = await this.buildContext(brief);
     const actor = 'system:orchestrator';
 
     try {
@@ -115,8 +121,9 @@ export class OrchestratorService {
     }
   }
 
-  private async buildContext(): Promise<AgentExecutionContext> {
+  private async buildContext(brief: Brief): Promise<AgentExecutionContext> {
     const brand = await this.brandContext.getActive();
+    const crmRecord = await this.maybeFetchCrm(brief);
     return {
       brandContextVersion: brand.version,
       brandContextPrompt: this.brandContext.renderPrompt(brand),
@@ -129,6 +136,41 @@ export class OrchestratorService {
       lightModel:
         this.config.get<string>('app.anthropic.lightModel') ??
         'claude-haiku-4-5-20251001',
+      crmRecord,
     };
+  }
+
+  /**
+   * Pre-fetch the matching Zoho record when the brief carries a CRM ref.
+   * Returns `undefined` if Zoho is not configured or the record isn't found —
+   * sales agents handle the missing-record case gracefully so the run can
+   * still progress.
+   */
+  private async maybeFetchCrm(
+    brief: Brief,
+  ): Promise<CrmRecordSnapshot | undefined> {
+    if (!brief.context || !this.zoho.isConfigured()) {
+      return undefined;
+    }
+    const leadId = brief.context.leadId;
+    const dealId = brief.context.dealId;
+
+    try {
+      if (leadId) {
+        const lead = await this.zoho.getLead(leadId);
+        if (!lead) return undefined;
+        return { module: 'Leads', id: lead.id, fields: lead };
+      }
+      if (dealId) {
+        const deal = await this.zoho.getDeal(dealId);
+        if (!deal) return undefined;
+        return { module: 'Deals', id: deal.id, fields: deal };
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Zoho pre-fetch failed for brief ${brief.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    return undefined;
   }
 }

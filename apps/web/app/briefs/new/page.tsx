@@ -4,6 +4,10 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AgentId, AgentRun, Brief } from '@finanshels-neuro/shared';
 import { api } from '../../../lib/api-client';
+import {
+  LeadPicker,
+  type ZohoSearchResult,
+} from '../../../components/lead-picker';
 
 interface AgentOption {
   readonly id: AgentId;
@@ -11,6 +15,12 @@ interface AgentOption {
   readonly description: string;
   readonly disabled?: boolean;
 }
+
+const SALES_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
+  'cold-outreach',
+  'follow-up',
+  'discovery-prep',
+]);
 
 const AGENT_OPTIONS: ReadonlyArray<AgentOption> = [
   {
@@ -21,20 +31,35 @@ const AGENT_OPTIONS: ReadonlyArray<AgentOption> = [
   {
     id: 'seo-brief',
     name: 'SEO Brief',
-    description: 'Coming in Sprint 2 — SERP-aware brief from a keyword.',
-    disabled: true,
+    description: 'SERP-aware brief from a target keyword.',
   },
   {
     id: 'social-variants',
     name: 'Social Variants',
-    description: 'Coming in Sprint 2 — LinkedIn + X posts from approved content.',
-    disabled: true,
+    description: '3-5 LinkedIn + 3-5 X posts from approved long-form content.',
   },
   {
     id: 'ad-copy',
     name: 'Ad Copy',
-    description: 'Coming in Sprint 2 — headline + body variants for paid ads.',
-    disabled: true,
+    description: '3 angles, each as Meta + LinkedIn headline/primary text.',
+  },
+  {
+    id: 'cold-outreach',
+    name: 'Cold Outreach',
+    description:
+      'First-touch email to a Zoho lead: subject + primary body + 2 variants.',
+  },
+  {
+    id: 'follow-up',
+    name: 'Follow-up',
+    description:
+      'Three-step cadence (nudge, value-add, breakup) for a stalled thread.',
+  },
+  {
+    id: 'discovery-prep',
+    name: 'Discovery Prep',
+    description:
+      'Pre-call brief: background, pain hypotheses, talking points, questions.',
   },
 ];
 
@@ -45,21 +70,31 @@ export default function NewBriefPage() {
   const [instructions, setInstructions] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [wordCountTarget, setWordCountTarget] = useState<number>(1200);
+  const [crmRecord, setCrmRecord] = useState<ZohoSearchResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isSalesAgent = SALES_AGENT_IDS.has(agentId);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
+      const context: Record<string, string> = {};
+      if (isSalesAgent && crmRecord) {
+        if (crmRecord.type === 'lead') context.leadId = crmRecord.id;
+        if (crmRecord.type === 'deal') context.dealId = crmRecord.id;
+      }
+
       const payload = {
         agentId,
         title,
         instructions,
         targetAudience: targetAudience || undefined,
         wordCountTarget: agentId === 'blog-post' ? wordCountTarget : undefined,
-        attachmentUrls: [],
+        attachmentUrls: [] as string[],
+        ...(Object.keys(context).length > 0 ? { context } : {}),
       };
       const result = await api.post<{ brief: Brief; run: AgentRun }>(
         '/briefs',
@@ -113,6 +148,21 @@ export default function NewBriefPage() {
           </div>
         </fieldset>
 
+        {isSalesAgent && (
+          <fieldset className="space-y-1">
+            <legend className="text-sm font-medium">Zoho lead</legend>
+            <p className="text-xs text-muted">
+              Pick the lead this draft is for. Required so the agent can
+              personalize and the publish step can attach a Note + Task.
+            </p>
+            <LeadPicker
+              module="leads"
+              value={crmRecord}
+              onSelect={setCrmRecord}
+            />
+          </fieldset>
+        )}
+
         <label className="block space-y-1">
           <span className="text-sm font-medium">Title</span>
           <input
@@ -121,7 +171,15 @@ export default function NewBriefPage() {
             required
             maxLength={200}
             className="w-full rounded-md bg-muted/10 border border-muted/40 px-3 py-2"
-            placeholder="UAE Corporate Tax thresholds for SMEs"
+            placeholder={
+              agentId === 'cold-outreach'
+                ? 'Subject hint or campaign theme'
+                : agentId === 'follow-up'
+                  ? 'Thread topic'
+                  : agentId === 'discovery-prep'
+                    ? 'Call topic / agenda'
+                    : 'UAE Corporate Tax thresholds for SMEs'
+            }
           />
         </label>
 
@@ -134,7 +192,15 @@ export default function NewBriefPage() {
             maxLength={8000}
             rows={6}
             className="w-full rounded-md bg-muted/10 border border-muted/40 px-3 py-2 font-mono text-sm"
-            placeholder="Beginner audience. Cover the 375k AED threshold, free-zone exemptions, filing deadlines."
+            placeholder={
+              agentId === 'cold-outreach'
+                ? 'Offer, hook, constraints. Anchors to mention. What we know about this lead.'
+                : agentId === 'follow-up'
+                  ? 'Paste the prior thread, then describe the outcome (e.g. "no reply 5d", "asked for time").'
+                  : agentId === 'discovery-prep'
+                    ? 'Focus areas, knowns, suspected pain, anything the lead has already told us.'
+                    : 'Beginner audience. Cover the 375k AED threshold, free-zone exemptions, filing deadlines.'
+            }
           />
         </label>
 
@@ -173,8 +239,13 @@ export default function NewBriefPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (isSalesAgent && !crmRecord)}
             className="rounded-md bg-accent text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-50"
+            title={
+              isSalesAgent && !crmRecord
+                ? 'Pick a Zoho lead first'
+                : undefined
+            }
           >
             {submitting ? 'Submitting…' : 'Submit brief'}
           </button>

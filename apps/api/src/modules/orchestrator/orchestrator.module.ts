@@ -4,6 +4,7 @@ import { AgentsModule } from '../agents/agents.module';
 import { BrandContextModule } from '../brand-context/brand-context.module';
 import { BriefsModule } from '../briefs/briefs.module';
 import { CloudTasksModule } from '../cloud-tasks/cloud-tasks.module';
+import { ZohoModule } from '../zoho/zoho.module';
 import { OrchestratorService } from './orchestrator.service';
 import { OrchestratorController } from './orchestrator.controller';
 
@@ -14,6 +15,7 @@ import { OrchestratorController } from './orchestrator.controller';
     BrandContextModule,
     BriefsModule,
     CloudTasksModule,
+    ZohoModule,
   ],
   controllers: [OrchestratorController],
   providers: [OrchestratorService],

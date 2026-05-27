@@ -26,6 +26,13 @@ export interface AppConfig {
     readonly finanshelsWebUrl: string;
     readonly finanshelsWebToken: string;
   };
+  readonly zoho: {
+    readonly clientId: string;
+    readonly clientSecret: string;
+    readonly refreshToken: string;
+    readonly apiBase: string;
+    readonly accountsBase: string;
+  };
 }
 
 export default function configuration(): { app: AppConfig } {
@@ -59,6 +66,14 @@ export default function configuration(): { app: AppConfig } {
       publish: {
         finanshelsWebUrl: process.env.FINANSHELS_WEB_PUBLISH_URL ?? '',
         finanshelsWebToken: process.env.FINANSHELS_WEB_PUBLISH_TOKEN ?? '',
+      },
+      zoho: {
+        clientId: process.env.ZOHO_CLIENT_ID ?? '',
+        clientSecret: process.env.ZOHO_CLIENT_SECRET ?? '',
+        refreshToken: process.env.ZOHO_REFRESH_TOKEN ?? '',
+        apiBase: process.env.ZOHO_API_BASE ?? 'https://www.zohoapis.com',
+        accountsBase:
+          process.env.ZOHO_ACCOUNTS_BASE ?? 'https://accounts.zoho.com',
       },
     },
   };

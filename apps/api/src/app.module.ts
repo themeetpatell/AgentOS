@@ -11,6 +11,7 @@ import { CloudTasksModule } from './modules/cloud-tasks/cloud-tasks.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { BrandContextModule } from './modules/brand-context/brand-context.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
+import { ZohoModule } from './modules/zoho/zoho.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
     CloudTasksModule,
     AgentsModule,
     BrandContextModule,
+    ZohoModule,
     AgentRunsModule,
     BriefsModule,
     OrchestratorModule,

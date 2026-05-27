@@ -5,26 +5,38 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { AgentRun } from '@finanshels-neuro/shared';
+import type { AgentId, AgentRun, Brief } from '@finanshels-neuro/shared';
+import { ZohoPublishAdapter } from './zoho-publish.adapter';
 
 export interface PublishResult {
-  readonly destination: 'finanshels-web' | 'noop';
+  readonly destination: 'finanshels-web' | 'zoho' | 'noop';
   readonly externalId?: string;
   readonly url?: string;
 }
+
+const SALES_AGENTS: ReadonlySet<AgentId> = new Set<AgentId>([
+  'cold-outreach',
+  'follow-up',
+  'discovery-prep',
+]);
 
 @Injectable()
 export class PublishService {
   private readonly logger = new Logger(PublishService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly zohoAdapter: ZohoPublishAdapter,
+  ) {}
 
   /**
-   * Push an approved run's draft to the finanshels_web CMS as a draft post.
-   * Returns 'noop' if the publish hook isn't configured (local dev / no CMS).
+   * Push an approved run's draft to the destination matching the agent type:
+   * - sales agents -> Zoho Note + Task on the matching Lead/Deal
+   * - marketing agents -> finanshels_web CMS hook
+   * Returns 'noop' if the relevant destination isn't configured.
    * Throws if the run isn't APPROVED or has no draft.
    */
-  async publish(run: AgentRun): Promise<PublishResult> {
+  async publish(run: AgentRun, brief: Brief): Promise<PublishResult> {
     if (run.status !== 'APPROVED') {
       throw new BadRequestException(
         `Run ${run.id} is not APPROVED (status: ${run.status})`,
@@ -34,6 +46,13 @@ export class PublishService {
       throw new BadRequestException(`Run ${run.id} has no draft to publish`);
     }
 
+    if (SALES_AGENTS.has(run.agentId)) {
+      return this.zohoAdapter.publish(run, brief);
+    }
+    return this.publishToWeb(run);
+  }
+
+  private async publishToWeb(run: AgentRun): Promise<PublishResult> {
     const url =
       this.config.get<string>('app.publish.finanshelsWebUrl') ??
       process.env.FINANSHELS_WEB_PUBLISH_URL ??
@@ -50,13 +69,14 @@ export class PublishService {
       return { destination: 'noop' };
     }
 
+    const draft = run.draft!;
     const payload = {
       runId: run.id,
       agentId: run.agentId,
-      title: run.draft.title,
-      body: run.draft.body,
-      seoTitle: run.draft.seoTitle,
-      metaDescription: run.draft.metaDescription,
+      title: draft.title,
+      body: draft.body,
+      seoTitle: draft.seoTitle,
+      metaDescription: draft.metaDescription,
       status: 'draft' as const,
     };
 

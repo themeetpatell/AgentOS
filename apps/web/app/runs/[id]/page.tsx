@@ -5,10 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import {
   ACTIVE_STATUSES,
+  type AgentId,
   type AgentRun,
   type Draft,
   type ReviewAction,
 } from '@finanshels-neuro/shared';
+
+const EMAIL_AGENTS: ReadonlySet<AgentId> = new Set<AgentId>([
+  'cold-outreach',
+  'follow-up',
+]);
 import { api } from '../../../lib/api-client';
 
 interface RunResponse {
@@ -166,6 +172,8 @@ export default function RunDetailPage() {
               onSave={(d) => submitReview({ action: 'edit', draft: d })}
               busy={busy}
             />
+          ) : EMAIL_AGENTS.has(run.agentId) ? (
+            <EmailDraftRenderer draft={run.draft} />
           ) : (
             <article className="rounded-md border border-muted/40 px-4 py-3 space-y-2 text-sm">
               <h3 className="font-semibold">{run.draft.title}</h3>
@@ -174,7 +182,30 @@ export default function RunDetailPage() {
                   {run.draft.metaDescription}
                 </p>
               )}
-              <pre className="whitespace-pre-wrap font-sans">{run.draft.body}</pre>
+              <pre className="whitespace-pre-wrap font-sans">
+                {run.draft.body}
+              </pre>
+              {run.draft.variants && run.draft.variants.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted">
+                    {run.draft.variants.length} variant
+                    {run.draft.variants.length === 1 ? '' : 's'}
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {run.draft.variants.map((v) => (
+                      <li
+                        key={v.label}
+                        className="rounded border border-muted/40 px-3 py-2"
+                      >
+                        <p className="font-mono text-muted mb-1">{v.label}</p>
+                        <pre className="whitespace-pre-wrap font-sans">
+                          {v.body}
+                        </pre>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </article>
           )}
         </section>
@@ -315,5 +346,51 @@ function Layout({ children }: { children: React.ReactNode }) {
     <main className="min-h-screen px-6 py-8 max-w-3xl mx-auto space-y-8">
       {children}
     </main>
+  );
+}
+
+interface EmailDraftRendererProps {
+  readonly draft: Draft;
+}
+
+function EmailDraftRenderer({ draft }: EmailDraftRendererProps) {
+  const variants = draft.variants ?? [];
+  const tabs = ['primary' as const, ...variants.map((v) => v.label)];
+  const [active, setActive] = useState<string>('primary');
+  const body =
+    active === 'primary'
+      ? draft.body
+      : variants.find((v) => v.label === active)?.body ?? draft.body;
+
+  return (
+    <article className="rounded-md border border-muted/40 px-4 py-3 space-y-3 text-sm">
+      <div>
+        <p className="text-xs uppercase text-muted">Subject</p>
+        <h3 className="font-semibold text-base">{draft.title}</h3>
+      </div>
+      {tabs.length > 1 && (
+        <div className="flex gap-1 border-b border-muted/30">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActive(tab)}
+              className={`text-xs px-3 py-1 rounded-t -mb-px ${
+                active === tab
+                  ? 'border border-muted/40 border-b-transparent bg-bg'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
+      <div>
+        <p className="text-xs uppercase text-muted mb-1">
+          {active === 'primary' ? 'Body' : `Variant: ${active}`}
+        </p>
+        <pre className="whitespace-pre-wrap font-sans">{body}</pre>
+      </div>
+    </article>
   );
 }
